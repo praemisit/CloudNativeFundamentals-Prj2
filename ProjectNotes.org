@@ -1,0 +1,44 @@
+#+TITLE: Project Notes
+
+* Setting up the environment
+** Check that all required tools are installed:
+    - Install Docker
+    - Set up a DockerHub account
+    - Set up kubectl
+    - Install VirtualBox with at least version 6.0
+    - Install Vagrant with at least version 2.0
+** Clone starter code
+#+begin_src shell
+git clone https://github.com/udacity/nd064-c2-message-passing-projects-starter.git
+mv nd064-c2-message-passing-projects-starter UdaConnect
+#+end_src
+** Create virtual system with installed K3S
+Can simply be done by
+#+begin_src shell
+vagrant up
+#+end_src
+** Retrieve Kubernetes config File
+#+begin_src shell
+vagrant ssh
+sudo cat /etc/rancher/k3s/k3s.yaml
+# Copy / paste output to a temporary file.
+exit
+#+end_src
+** Configure kubectl
+1. Copy the output from the step before into the file ~/.kube/config
+2. Check that no errors occure with
+#+begin_src shell
+kubectl describe services
+#+end_src
+** Deploy kubectl and seed the database
+#+begin_src shell
+kubectl apply -f deployment/
+sh scripts/run_db_command.sh postgres-5f676c995d-5c4jd
+#+end_src
+** Check the environment
+#+begin_src shell
+kubectl get pods
+kubectl get services
+#+end_src
+
+Both returned udaconnect-app, udaconnect-api, and postgres.
