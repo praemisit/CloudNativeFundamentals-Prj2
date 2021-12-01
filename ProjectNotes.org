@@ -42,3 +42,22 @@ kubectl get services
 #+end_src
 
 Both returned udaconnect-app, udaconnect-api, and postgres.
+
+These pages also loaded nicely on the web browser:
+
+    http://localhost:30001/ - OpenAPI Documentation
+    http://localhost:30001/api/ - Base path for API
+    http://localhost:30000/ - Frontend ReactJS Application
+* Notes from the code review
++ Need to adjust path to docker image in udaconnect-api.yaml and udaconnect-app.yaml
++ Module folder contains all the application source code.
++ Controllers.py contains all the routes
++ Models.py contains the definitions of the various structures being used.
++ Schemas.py contains the database layer (and the messages that the API used).
++ service.py contains the logic
++ Basically the sequence when someone is making an API request is as follows:
+  1. It goes into controllers.py
+  2. From there into the services.py
+  3. From there the models.py
+  4. Schema.py is used to format the response as a clean JSON response.
+* Step 1: Determine message passing strategies when refactoring into a microservice architecture
