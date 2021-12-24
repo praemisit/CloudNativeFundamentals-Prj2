@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    service: loc-event-consumer-api
+  name: loc-event-consumer-api
+spec:
+  ports:
+  - name: "9092"
+    port: 9092
+    targetPort: 9092
+  selector:
+    service: loc-event-consumer-api
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    service: loc-event-consumer-api
+  name: loc-event-consumer-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: loc-event-consumer-api
+  template:
+    metadata:
+      labels:
+        service: loc-event-consumer-api
+    spec:
+      containers:
+      - image: praemisit/loc-event-consumer-api:latest
+        name: loc-event-consumer-api-container
+        imagePullPolicy: Always
+        env:
+        - name: KAFKA_URL
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-configmap
+              key: KAFKA_URL
+        - name: KAFKA_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-configmap
+              key: KAFKA_TOPIC
+        - name: DB_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: db-geo
+              key: DB_USERNAME
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-geo-secret
+              key: DB_PASSWORD
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: db-geo
+              key: DB_NAME
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: db-geo
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: db-geo
+              key: DB_PORT
+      restartPolicy: Always

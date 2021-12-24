@@ -1,0 +1,15 @@
+*************************************
+* Architecture Decisions Memorandum *
+*************************************
+
+The gRPC technology is being used to create new location data. The respective locEvent.proto format is
+
+message LocEventMessage {
+  string creation_time = 1;
+  int32 person_id = 2;
+  int32 latitude = 3;
+  int32 longitude = 4;
+}
+
+
+Sample request for this endpoint can be made by running the python script "pushTestEvents.py" in the loc-event-api pod. For detailed instruction please have a look at the project's Readme, chapter "Check gRPC and Kafka message stream to create new location data points"

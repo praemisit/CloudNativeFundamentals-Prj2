@@ -1,0 +1,255 @@
+#+TITLE: Readme
+* UdaConnect
+** Overview
+*** Classification of the project
+
+This project is part of the Udacity Nanodegree "[[https://www.udacity.com/course/cloud-native-application-architecture-nanodegree--nd064][Cloud Native Application Architecture]]". The task in this project is to "refactor an application into a microservice architecture using message passing techniques that had been trained in the course".
+*** Project Background
+
+Conferences and conventions are hotspots for making connections. Professionals in attendance often share the same interests and can make valuable business and personal connections with one another. At the same time, these events draw a large crowd and it's often hard to make these connections in the midst of all of these events' excitement and energy. To help attendees make connections, we are building the infrastructure for a service that can inform attendees if they have attended the same booths and presentations at an event.
+
+*** Detailed Task
+
+You work for a company that is building an app that uses location data from mobile devices. Your company has built a Proof of concept (POC) application to ingest location data named UdaConnect. This POC was built with the core functionality of ingesting location and identifying individuals who have shared close geographic proximity.
+
+Management loved the POC, so now that there is buy-in, we want to enhance this application. You have been tasked to enhance the POC application into a Minimum Viable Product (MVP) to handle the large volume of location data that will be ingested.
+
+To do so, you will refactor this application into a microservice architecture using message passing techniques that you have learned in this course.
+
+*** Starter Code
+
+You can get started by forking, cloning, or downloading the [[https://github.com/udacity/nd064-c2-message-passing-projects-starter][starter code]].
+*** Used Technologies
+
+    - VirtualBox - Hypervisor allowing you to run multiple operating systems
+    - Vagrant - Tool for managing virtual deployed environments
+    - K3s - Lightweight distribution of K8s to easily develop against a local cluster
+    - Flask - API webserver
+    - SQLAlchemy - Database ORM
+    - PostgreSQL - Relational database
+    - PostGIS - Spatial plug-in for PostgreSQL enabling geographic queries
+    - gRPC - A high performance, open source universal RPC framework
+    - Kafka - Message streaming service
+** Starting the App
+The app is build in a way so that it can be installed and run in a Kubernetes Cluster.
+*** Setup the environment
+
+    - Install Docker
+    - Set up a DockerHub account
+    - Set up kubectl
+    - Install VirtualBox with at least version 6.0
+    - Install Vagrant with at least version 2.0
+
+*** Initialise K3s
+
+To run the application, you will need a K8s cluster running locally and interface with it via kubectl. This project uses Vagrant with VirtualBox to run K3s.
+
+In the project's root folder, run vagrant up.
+#+begin_src shell
+vagrant up
+#+end_src
+
+The command will take a while and will leverage VirtualBox to load an openSUSE OS and automatically install K3s.
+
+After vagrant up is done, SSH into the Vagrant environment and retrieve the Kubernetes config file used by kubectl. Copy this file's contents into your local environment so that kubectl knows how to communicate with the K3s cluster.
+
+When logged in to the vagrant box, run
+#+begin_src shell
+sudo cat /etc/rancher/k3s/k3s.yaml
+#+end_src
+
+Copy the output of that command into your clipboard and exit the SSH session. In your local environment create a file "~/.kube/config" and paste the content of the k3s.yaml file (your clipboard) into that file.
+
+Test whether your environment works by running
+#+begin_src shell
+kubectl describe services
+#+end_src
+It should not return any errors.
+*** Deploying the application
+The app has been refactored into several microservices that need to be deployed step by step.
+
+**** Setup Postgres database service
+Run the following commands to setup the postgres database service:
+#+begin_src shell
+kubectl apply -f modules/postgres/deployment/db-configmap.yaml
+kubectl apply -f modules/postgres/deployment/db-secret.yaml
+kubectl apply -f modules/postgres/deployment/geo-db.yaml
+
+# Seed the database with some initial test data.
+# 1. Get the pod name of the postgres database that you just created:
+kubectl get pods
+
+# 2. Than run
+sh modules/postgres/scripts/run_db_command.sh <POD_NAME>
+#+end_src
+
+The above commands will deploy a postgres database on Kubernetes. The db is accessible under port 5432.
+**** Setup Person Service
+Run the following commands to setup the Person Service:
+#+begin_src shell
+kubectl apply -f modules/prsService/deployment/db-configmap.yaml
+kubectl apply -f modules/prsService/deployment/db-secret.yaml
+kubectl apply -f modules/prsService/deployment/prs-service-api.yaml
+#+end_src
+
+Test the person service with URL / port: http://localhost:30001/
+**** Setup Location Service
+Run the following commands to setup the Location Service:
+#+begin_src shell
+kubectl apply -f modules/locService/deployment/db-configmap.yaml
+kubectl apply -f modules/locService/deployment/db-secret.yaml
+kubectl apply -f modules/locService/deployment/loc-service-api.yaml
+#+end_src
+
+Test the location service with URL / port: http://localhost:30002/
+**** Setup Connection Service
+Run the following commands to setup the Connection Service:
+#+begin_src shell
+kubectl apply -f modules/conService/deployment/db-configmap.yaml
+kubectl apply -f modules/conService/deployment/db-secret.yaml
+kubectl apply -f modules/conService/deployment/con-service-api.yaml
+
+#+end_src
+
+Test the connection service with URL / port: http://localhost:30003/
+**** Setup Frontend Service
+Run the following commands to setup the Connection Service:
+#+begin_src shell
+kubectl apply -f modules/frontend/deployment/udaconnect-app.yaml
+
+#+end_src
+
+Test the Udaconnect frontend service with URL / port: http://localhost:30000/
+**** Setup Kafka message service
+[[https://bitnami.com/stack/kafka/helm][Apache Kafka packaged by Bitnami]] can be used to setup Kafka on the Kubernetes Cluster.
+
+***** Install and configure Helm
+Run the following commands if you have not yet installed Helm with the bitnami repository.
+
+#+begin_src shell
+curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get-helm-3 > get_helm.sh
+chmod 700 get_helm.sh
+./get_helm.sh
+***** Deploy bitnami/kafka on the Kubernetes cluster
+#+begin_src shell
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+helm install loc-event-kafka bitnami/kafka
+#+end_src
+
+The command should provide the following output:
+
+#+begin_quote
+Kafka can be accessed by consumers via port 9092 on the following DNS name from within your cluster:
+
+    loc-event-kafka.default.svc.cluster.local
+
+Each Kafka broker can be accessed by producers via port 9092 on the following DNS name(s) from within your cluster:
+
+    loc-event-kafka-0.loc-event-kafka-headless.default.svc.cluster.local:9092
+
+To create a pod that you can use as a Kafka client run the following commands:
+
+    kubectl run loc-event-kafka-client --restart='Never' --image docker.io/bitnami/kafka:2.8.1-debian-10-r73 --namespace default --command -- sleep infinity
+    kubectl exec --tty -i loc-event-kafka-client --namespace default -- bash
+
+    PRODUCER:
+        kafka-console-producer.sh \
+
+            --broker-list loc-event-kafka-0.loc-event-kafka-headless.default.svc.cluster.local:9092 \
+            --topic test
+
+    CONSUMER:
+        kafka-console-consumer.sh \
+
+            --bootstrap-server loc-event-kafka.default.svc.cluster.local:9092 \
+            --topic test \
+            --from-beginning
+
+#+end_quote
+
+***** Create a topic "loc"
+Login to the Kubernetes Cluster with:
+#+begin_src shell
+kubectl exec -it loc-event-kafka-0 /bin/bash
+#+end_src
+
+Within the Kubernetes Cluster add the topic "loc" with:
+#+begin_src shell
+kafka-topics.sh --create --topic loc --bootstrap-server localhost:9092
+#+end_src
+***** Test the availability of the Kafka service
+Start a new terminal session and create a new pod that can be used as Kafka client:
+#+begin_src shell
+kubectl run loc-event-kafka-client --restart='Never' --image docker.io/bitnami/kafka:2.8.1-debian-10-r73 --namespace default --command -- sleep infinity
+#+end_src
+
+After the pod is up and running, log in:
+#+begin_src shell
+kubectl exec --tty -i loc-event-kafka-client --namespace default -- bash
+#+end_src
+
+Within the pod run a Kafka producer:
+#+begin_src shell
+kafka-console-producer.sh --broker-list loc-event-kafka-0.loc-event-kafka-headless.default.svc.cluster.local:9092 --topic loc
+#+end_src
+
+That should give you a prompt in which you can enter some test messages.
+
+
+Now you need to check whether the messages are being passed over to the consumer. For that create an additional pod:
+#+begin_src shell
+kubectl run loc-event-kafka-client2 --restart='Never' --image docker.io/bitnami/kafka:2.8.1-debian-10-r73 --namespace default --command -- sleep infinity
+#+end_src
+
+After the 2nd pod is up and running, log in:
+#+begin_src shell
+kubectl exec --tty -i loc-event-kafka-client2 --namespace default -- bash
+#+end_src
+
+Within the pod run a Kafka consumer:
+#+begin_src shell
+kafka-console-consumer.sh --bootstrap-server loc-event-kafka.default.svc.cluster.local:9092 --topic loc --from-beginning
+#+end_src
+
+That should give you a prompt in which you should see the test messages that you have entered before,
+**** Deploy the Location Event Producer
+#+begin_src shell
+kubectl apply -f modules/locEventProducer/deployment/kafka-configmap.yaml
+kubectl apply -f modules/locEventProducer/deployment/loc-event-api.yaml
+#+end_src
+**** Deploy the Location Event Consumer
+#+begin_src shell
+kubectl apply -f modules/locEventConsumer/deployment/kafka-configmap.yaml
+kubectl apply -f modules/locEventConsumer/deployment/db-configmap.yaml
+kubectl apply -f modules/locEventConsumer/deployment/db-secret.yaml
+kubectl apply -f modules/locEventConsumer/deployment/loc-event-consumer-api.yaml
+#+end_src
+** Checking whether the app works in your environment
+*** Verify Kubernetes Pods and services
+You should first check if the required Kubernetes pods and service are up and running. For this, please run:
+#+begin_src shell
+kubectl get pods
+
+kubectl get services
+#+end_src
+For each of the before mentioned deployments a pod and service should be up and running.
+*** Check service endpoints
+The following endpoints should work and not return any errors:
++ http://localhost:30000
++ http://localhost:30001
++ http://localhost:30002
++ http://localhost:30003
+*** Check gRPC and Kafka message stream to create new location data points
+The pod "loc-event-api-xxxxxxxx-xxxxx" has been developed to let you test whether the gRPC - Kafka message stream works as expected.
+
+1. Log into the "loc-event-api-xxxxxxxx-xxxxx" pod with
+   #+begin_src shell
+   kubectl exec --tty -i loc-event-api-xxxxxxxx-xxxxx -- bash
+   #+end_src
+2. Within the pod run the python script "pushTestEvents.py"
+   #+begin_src shell
+   python pushTestEvents.py
+   #+end_src
+3. Check whether 5 new entries have been created in the location database.
+   For that open http://localhost:30002/api/locations and verify that there are 5 new entries with a creation date of today.

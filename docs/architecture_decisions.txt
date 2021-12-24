@@ -1,0 +1,37 @@
+*************************************
+* Architecture Decisions Memorandum *
+*************************************
+
+
+Business Background:
+=====================
+The company has built a proof of concept application to ingest location data named UdaConnect. This POC was built with the core functionality of ingesting location and identifying individuals who have shared a close geographic proximity.
+
+Management loved the POC and wants to enhance this application into a minimum viable product that is capable to handle the large volume of location data that will be ingested.
+
+
+The following additional constraints need to be considered:
+1. Need to be able to launch this project in 2 weeks with a limited budget.
+2. At the same time, the project needs to be able to scale to handle large volumes of location data being ingested.
+3. The project is designed as an MVP and does not include any unnecessary features.
+4. Services should run in containers.
+5. Design should be able to handle ingress of a large volume of data.
+
+
+Architecture Decisions:
+========================
+
+Refactor Person-, Location-, and Connection Service into separate Microservices
+--------------------------------------------------------------------------------
+The three services that are being consumed by the Frontend service have been refactored into separate microservices but continued to use a REST API interface. The expected data volume for these interfaces is expected to be low. It also needs to be expected that further enhancements to theses services will be required sooner than later and by splitting these services into their own microservices changes can be implemented and deployed independently for each service.
+
+The feature to create a new location has been removed from the Location REST API service and was replaced by a gRPC / Kafka message queue (see below). This shall avoid an overload of the service when too many participating people are traveling.
+
+Finally a new endpoint to delete a person has been implemented.
+
+As said before, it is expected that further improvements on these services will be required once the application is used by an increasing number of people. With the chosen design these changes can be flexible and quickly implemented.
+
+
+Refactor the creation of a new location as a gRPC - Kafka message stream
+-------------------------------------------------------------------------
+Based on the given business scenario it needs be be expected that the number of new location events is growing significantly. In order to be prepared for such a high data load, the creation of new location data, which is initiated by the mobile phones of the participating persons, has been refactored into a gRPC - Kafka message queue. These technologies are well know for the ability to handle large amounts of data.
